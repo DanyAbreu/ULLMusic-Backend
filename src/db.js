@@ -3,7 +3,7 @@ import { createPool } from "mysql2/promise";
 export const pool = createPool({
   host: "localhost",
   user: "root",
-  password: "ullmusic",
+  password: "22032017",
   port: 3306,
-  database: "login_node",
+  database: "ullmusic_back",
 });
