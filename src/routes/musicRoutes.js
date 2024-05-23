@@ -7,9 +7,12 @@ app.use(cors());
 app.use(bodyParser.json());
 
 import {
+    getAlbum,
     getNewReleases
 } from "../controllers/musicController.js";
 
 app.get("/news",getNewReleases);
+app.get("/album/:idAlb",getAlbum);
+
 
 export default app;

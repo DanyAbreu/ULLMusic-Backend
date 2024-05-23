@@ -61,13 +61,10 @@ function insertBackslash(str) {
 }
 
 //----------------------------------------------------------------//
-// Función principal
+// Metodo para actualizar la biografia de los artistas
 
-(async () => {
-
-
+const upDateArtists = async () => {
   const artists = await getAllArtists();
-
   for (let i = 0; i < artists.length; i++) {
     const artist = artists[i];
     if (artist.summary == null) {
@@ -77,7 +74,30 @@ function insertBackslash(str) {
         let content = insertBackslash(apiArtist.bio.content);
         await updateArtist(artist.nameArt, summary, content);
       }
-      
     }
   }
+}
+
+//----------------------------------------------------------------//
+// Metodo para obtener la info de un album
+
+export const getAlbumInfo = async (artistName,albumName) => {
+  const url = `http://ws.audioscrobbler.com//2.0/?method=album.getinfo&api_key=${apiKey}&artist=${artistName}&album=${albumName}&format=json&lang=es`
+  try {
+    const response = await axios.get( url );
+    return response.data.album;
+  } catch (error) {
+      console.error(`ERROR: no se a podido conectar a LastFM (${artistName}): `/* , error.message */);
+      throw error;
+  }
+}
+
+//----------------------------------------------------------------//
+// Función principal
+
+(async () => {
+
+let response = await getAlbumInfo("ariana grande","Sweetener")
+console.log(response)
+  
 })();
