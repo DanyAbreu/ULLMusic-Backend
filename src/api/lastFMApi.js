@@ -96,8 +96,8 @@ export const getAlbumInfo = async (artistName,albumName) => {
 // Función principal
 
 (async () => {
-
-let response = await getAlbumInfo("ariana grande","Sweetener")
-console.log(response)
+  await upDateArtists();
+//let response = await getAlbumInfo("ariana grande","Sweetener")
+//console.log(response)
   
 })();

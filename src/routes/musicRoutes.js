@@ -8,11 +8,13 @@ app.use(bodyParser.json());
 
 import {
     getAlbum,
+    getArtist,
     getNewReleases
 } from "../controllers/musicController.js";
 
 app.get("/news",getNewReleases);
 app.get("/album/:idAlb",getAlbum);
+app.get("/artist/:idArt",getArtist);
 
 
 export default app;
