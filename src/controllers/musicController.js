@@ -1,6 +1,6 @@
-import { pool } from "../db.js";
+//import { pool } from "../db.js";
 import * as spotifyApi from "../api/spotifyApi.js";
-import { response } from "express";
+//import { response } from "express";
 
 
 
@@ -9,7 +9,7 @@ export const getNewReleases = async (req, res) => {
         const newAlbums = await spotifyApi.getNewReleases();
         res.send(newAlbums); //Devuelve un arreglo de nuevos albunes
     } catch (error) {
-        res.status(503).json({ message: 'Error al obtener nuevos albunes: ' + error.message })
+        res.status(503).json({ message: 'Error al obtener nuevos albunes: ' + error.message });
         throw error;
     }
 }
@@ -21,7 +21,7 @@ export const getAlbum = async (req, res) => {
         res.send(album); //Debuelve info del album y sus canciones
 
     } catch (error) {
-        res.status(503).json({ message: 'Error al obtener el album: ' + error.message })
+        res.status(503).json({ message: 'Error al obtener el album: ' + error.message });
         throw error;
     }
 }
@@ -29,7 +29,7 @@ export const getAlbum = async (req, res) => {
 export const getArtist = async (req, res) => {
     try {
         const {idArt} = req.params; 
-        let artist = await spotifyApi.getArtist(idArt);
+        const artist = await spotifyApi.getArtist(idArt);
         const response = {
             idArt: artist.idArt,
             nameArt: artist.nameArt,
@@ -43,6 +43,23 @@ export const getArtist = async (req, res) => {
         };
         res.send(response);
     } catch (error) {
-        res.status(503).json({ message: 'Error al obtener al artista: ' + error.message })
+        res.status(503).json({ message: 'Error al obtener al artista: ' + error.message });
+    }
+}
+
+export const getSearch = async (req, res) => {
+    try {
+        const {strSearch} = req.params;
+        const artists = await spotifyApi.getArtistByName(strSearch);
+        const albums = await spotifyApi.getAlbumByName(strSearch);
+        const tracks = await spotifyApi.getTrackByName(strSearch);
+        const search = {
+            artists: artists,
+            albums: albums,
+            tracks: tracks
+        }
+        res.send(search);
+    } catch (error) {
+        res.status(503).json({ message: 'Error al obtener la busqueda: ' + error.message });
     }
 }

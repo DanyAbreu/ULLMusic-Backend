@@ -79,7 +79,19 @@ const getArtist = async (id) => {
       for (let i = 0; i < artist.data.genres.length; i++) {
         genresStr += artist.data.genres[i] + " ";
       }
-      await pool.query(`INSERT INTO ARTIST (idArt,nameArt,imageArtUrl,genresArt,popularityArt,followers) VALUES ("${artist.data.id}","${artist.data.name}","${artist.data.images[0].url}","${genresStr}",${artist.data.popularity},${artist.data.followers.total});`)
+      if (artist.data.images.length > 0) {
+        await pool.query(`INSERT INTO ARTIST (idArt,nameArt,imageArtUrl,genresArt,popularityArt,followers) VALUES (?,?,?,?,?,?);`,
+      [
+        artist.data.id,
+        artist.data.name,
+        artist.data.images[0].url,
+        genresStr,
+        artist.data.popularity,
+        artist.data.followers.total
+      ]);
+      }else{
+        await pool.query(`INSERT INTO ARTIST (idArt,nameArt,imageArtUrl,genresArt,popularityArt,followers) VALUES ("${artist.data.id}","${artist.data.name}",null,"${genresStr}",${artist.data.popularity},${artist.data.followers.total});`)
+      }
       console.log("Insertado el artista " + artist.data.name);
     } catch (error) {
       console.error('Error al insertar al artista ' + artist.name + ': ', error.message);
@@ -139,8 +151,16 @@ const getAlbum = async (albumId) => {
         for (let j = 0; j < album.genres.length; j++) {
           genresStr += album.genres[j] + " ";
         }
-        //console.log(`INSERT INTO album (idAlb,idArt,nameAlb,imageAlbUrl,genresAlb,popularityAlb,releaseDate) VALUES ("${album.id}","${album.artists[i].id}","${album.name}","${album.images[0].url}", "${genresStr}" ,${album.popularity},'${album.release_date}');`);
-        await pool.query(`INSERT INTO album (idAlb,idArt,nameAlb,imageAlbUrl,genresAlb,popularityAlb,releaseDate) VALUES ("${album.id}","${album.artists[i].id}","${album.name}","${album.images[0].url}", "${genresStr}" ,${album.popularity},'${album.release_date}');`);
+        await pool.query(`INSERT INTO album (idAlb,idArt,nameAlb,imageAlbUrl,genresAlb,popularityAlb,releaseDate) VALUES (?,?,?,?,?,?,?);`,
+        [
+          album.id,
+          album.artists[i].id,
+          album.name,
+          album.images[0].url,
+          genresStr,
+          album.popularity,
+          album.release_date
+        ]);
         console.log(`Insertado el album ${album.name}`)
       }
       return await getAlbum(albumId);
@@ -179,9 +199,26 @@ const getTrack = async (id) => {
         const albumId = track.data.album.id;
         console.log(`Insertando la canción: ${track.data.name}`);
         // inserta el track en la base de datos
-        await pool.query(`INSERT INTO track (idTrack, idAlb, idArt, nameTrack, popularityTrack, previewUrl, duration) VALUES ("${track.data.id}", "${albumId}", "${artistId}", "${track.data.name}",${track.data.popularity},"${track.data.preview_url}",${track.data.duration_ms});`);
+          await pool.query(
+          `INSERT INTO track (idTrack, idAlb, idArt, nameTrack, popularityTrack, previewUrl, duration)
+           VALUES (?, ?, ?, ?, ?, ?, ?);`,
+          [
+            track.data.id,
+            albumId,
+            artistId,
+            track.data.name,
+            track.data.popularity,
+            track.data.preview_url,
+            track.data.duration_ms
+          ]
+        );
+        const response = await pool.query(`SELECT * FROM track WHERE idTrack = "${id}"`);
+        // Si el track está en la base de datos devuelve el objeto
+        if (response[0].length != 0) {
+          return response[0];
+        }
       }
-      return await getTrack(id);
+      
     } catch (error) {
       console.error('ERROR al insertar Track ' + track.data.name + ": ", error.message);
     }
@@ -215,7 +252,8 @@ const getAlbumTracks = async (id) => {
       const trackId = tracks.data.items[i].id;
       await getTrack(trackId);
     }
-    return await getAlbumTracks(id);
+    const response2 = await pool.query(`select distinct(idTrack), nameTrack, previewUrl, duration from track where idAlb = "${id}";`);
+    return  response2[0];
   } catch (error) {
     console.error(`Error al obtener canciones del álbum: ${id}`, error.message);
     throw error;
@@ -310,8 +348,71 @@ const getNewReleases = async () => {
   }
 };
 
+//----------------------------------------------------------------//
+// Método busqueda de artistas por nombre
 
-export { getArtist, getAlbum, getArtistAlbums, getTrack, getAlbumTracks, getNewReleases };
+const getArtistByName = async (nameArt) => {
+  try {
+    // Intenta conectar a la BBDD
+    const [SQLResponse] = await pool.query(`select * from artist where nameArt like "%${nameArt}%";`);
+    //Si encuentra resultados los devuelve
+    if (SQLResponse.length != 0) {
+      return SQLResponse;
+    }
+    //en caso de no encontrarlos hace petición a la API
+    else{
+      const searchUrl = `https://api.spotify.com/v1/search?q=${nameArt}&type=artist`;
+      const token = await getToken(clientId, clientSecret);
+      const apiResponse = await axios.get(searchUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      let response = []
+      for (let i = 0; i < apiResponse.data.artists.items.length; i++) {
+        const artist = await getArtist(apiResponse.data.artists.items[i].id);
+        response.push(artist);
+      }
+      return response;
+    }
+  } catch (error) {
+    console.error(`Error al obtener información del artista: ${nameArt}`, error.message);
+    throw error;
+  }
+
+};
+
+//----------------------------------------------------------------//
+// Método busqueda de albunes por nombre
+
+const getAlbumByName = async (nameAlb) => {
+  try {
+    // Intenta conectar a la BBDD
+    const [SQLResponse] = await pool.query(`select * from album where nameAlb like "%${nameAlb}%";`);
+    return SQLResponse;
+
+  } catch (error) {
+    console.error(`Error al obtener información del album: ${nameAlb}`, error.message);
+    throw error;
+  }
+};
+
+//----------------------------------------------------------------//
+// Método busqueda de canciones por nombre
+
+const getTrackByName = async (nameTrack) => {
+  try {
+    // Intenta conectar a la BBDD
+    const [SQLResponse] = await pool.query(`select * from track where nameTrack like "%${nameTrack}%";`);
+    return SQLResponse;
+    
+  } catch (error) {
+    console.error(`Error al obtener información del track: ${nameTrack}`, error.message);
+    throw error;
+  }
+};
+
+export { getArtist, getAlbum, getArtistAlbums, getTrack, getAlbumTracks, getNewReleases, getArtistByName, getAlbumByName, getTrackByName};
 
 //------------------- Funcion principal ------------------------//
 /* 

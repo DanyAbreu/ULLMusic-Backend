@@ -36,9 +36,13 @@ export const updateArtist = async (nameArt, summary, content) => {
   try {
     await pool.query(`
       UPDATE Artist
-      SET summary = '${summary}', content = '${content}'
-      WHERE nameArt = "${nameArt}";
-    `);
+      SET summary = ?, content = ?
+      WHERE nameArt = ?;`,
+    [
+      summary,
+      content,
+      nameArt
+    ]);
     console.log("ACTUALIZADO el artista : " + nameArt);
   } catch (error) {
     console.error(`ERROR: no se ha podido actualizar la base de datos (${nameArt}): `, error.message);
