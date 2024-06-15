@@ -37,19 +37,32 @@ const getToken = async (clientId, clientSecret) => {
 
 //----------------------------------------------------------------//
 
-function simplificarFecha(fechaCompleta) {
+function simplifyDate(completeDate) {
   // Crear un nuevo objeto Date a partir de la cadena de fecha completa
-  const fecha = new Date(fechaCompleta);
+  const date = new Date(completeDate);
 
   // Obtener los componentes de año, mes y día
-  const año = fecha.getUTCFullYear();
-  const mes = String(fecha.getUTCMonth() + 1).padStart(2, '0'); // Meses son 0-indexados, así que sumamos 1
-  const día = String(fecha.getUTCDate()).padStart(2, '0');
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Meses son 0-indexados, así que sumamos 1
+  const day = String(date.getUTCDate()).padStart(2, '0');
 
   // Formatear la fecha como "YYYY-MM-DD"
-  const fechaSimplificada = `${año}-${mes}-${día}`;
+  return`${year}-${month}-${day}`;
+}
 
-  return fechaSimplificada;
+//----------------------------------------------------------------//
+
+function convertMillisecondsToMinutes(ms) {
+  // Calcular los minutos y segundos
+  let totalSeconds = Math.floor(ms / 1000);
+  let minutes = Math.floor(totalSeconds / 60);
+  let seconds = totalSeconds % 60;
+  
+  // Formatear los segundos para que siempre tengan dos dígitos
+  let formattedSeconds = seconds < 10 ? `0${seconds}` : seconds;
+
+  // Devolver el resultado en el formato 0:00
+  return `${minutes}:${formattedSeconds}`;
 }
 
 //----------------------------------------------------------------//
@@ -121,7 +134,7 @@ const getAlbum = async (albumId) => {
         imageAlbUrl: album[0][0].imageAlbUrl,
         genresAlb: album[0][0].genresAlb,
         popularityAlb: album[0][0].popularityAlb,
-        releaseDate: simplificarFecha(album[0][0].releaseDate),
+        releaseDate: simplifyDate(album[0][0].releaseDate),
         tracks: await getAlbumTracks(albumId) //Array con todas las canciones
       };
       // bucle que recorre los artistas de un album
@@ -182,7 +195,16 @@ const getTrack = async (id) => {
     const response = await pool.query(`SELECT * FROM track WHERE idTrack = "${id}"`);
     // Si el track está en la base de datos devuelve el objeto
     if (response[0].length != 0) {
-      return response[0];
+      let track = {
+        idTrack: response[0].idTrack,
+        idAlb: response[0].idAlb,
+        idArt: response[0].idArt,
+        nameTrack: response[0].nameTrack,
+        popularityTrack: response[0].popularityTrack,
+        previewUrl: response[0].previewUrl,
+        duration: convertMillisecondsToMinutes(response[0].duration)
+      }
+      return track;
     }
     //En caso de que el track no esté en la BBDD
     const token = await getToken(clientId, clientSecret);
@@ -215,7 +237,16 @@ const getTrack = async (id) => {
         const response = await pool.query(`SELECT * FROM track WHERE idTrack = "${id}"`);
         // Si el track está en la base de datos devuelve el objeto
         if (response[0].length != 0) {
-          return response[0];
+          let track = {
+            idTrack: response[0].idTrack,
+            idAlb: response[0].idAlb,
+            idArt: response[0].idArt,
+            nameTrack: response[0].nameTrack,
+            popularityTrack: response[0].popularityTrack,
+            previewUrl: response[0].previewUrl,
+            duration: convertMillisecondsToMinutes(response[0].duration)
+          }
+          return track;
         }
       }
       
@@ -232,28 +263,56 @@ const getTrack = async (id) => {
 //----------------------------------------------------------------//
 
 const getAlbumTracks = async (id) => {
-  const AlbumTracksUrl = `https://api.spotify.com/v1/albums/${id}/tracks`;
+  const AlbumTracksUrl = `https://api.spotify.com/v1/albums/${id}/tracks `;
   try {
-    const response = await pool.query(`select distinct(idTrack), nameTrack, previewUrl, duration from track where idAlb = "${id}";`);
+    const mySQLResponse = await pool.query(`select distinct(idTrack), nameTrack, previewUrl, duration from track where idAlb = "${id}";`);
 
     //Si en BBDD hay canciones las devuleve
-    if (response[0].length != 0) {
-      return response[0];
+    let tracks = [];
+    if (mySQLResponse[0].length != 0) {
+      for (let i = 0; i < mySQLResponse[0].length; i++) {
+        let track = {
+          idTrack: mySQLResponse[0][i].idTrack,
+          idAlb: mySQLResponse[0][i].idAlb,
+          idArt: mySQLResponse[0][i].idArt,
+          nameTrack: mySQLResponse[0][i].nameTrack,
+          popularityTrack: mySQLResponse[0][i].popularityTrack,
+          previewUrl: mySQLResponse[0][i].previewUrl,
+          duration: convertMillisecondsToMinutes(mySQLResponse[0][i].duration)
+        }
+        tracks.push(track)
+      }
+      return tracks;
     }
     // Si la BBDD está vacia hace la petición a Spotify
-    const token = await getToken(clientId, clientSecret);
-    const tracks = await axios.get(AlbumTracksUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    // bucle recorre tracks del album
-    for (let i = 0; i < tracks.data.items.length; i++) {
-      const trackId = tracks.data.items[i].id;
-      await getTrack(trackId);
+    else{
+      const token = await getToken(clientId, clientSecret);
+      const apiResponse = await axios.get(AlbumTracksUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      // bucle recorre tracks del album
+      for (let i = 0; i < apiResponse.data.items.length; i++) {
+        const trackId = apiResponse.data.items[i].id;
+        await getTrack(trackId);
+      }
+      const response = await pool.query(`select distinct(idTrack), nameTrack, previewUrl, duration from track where idAlb = "${id}";`);
+      let tracks = [];
+      for (let i = 0; i < response[0].length; i++) {
+        let track = {
+          idTrack: response[0][i].idTrack,
+          idAlb: response[0][i].idAlb,
+          idArt: response[0][i].idArt,
+          nameTrack: response[0][i].nameTrack,
+          popularityTrack: response[0][i].popularityTrack,
+          previewUrl: response[0][i].previewUrl,
+          duration: convertMillisecondsToMinutes(response[0][i].duration)
+        }
+        tracks.push(track)
+      }
+      return tracks;
     }
-    const response2 = await pool.query(`select distinct(idTrack), nameTrack, previewUrl, duration from track where idAlb = "${id}";`);
-    return  response2[0];
   } catch (error) {
     console.error(`Error al obtener canciones del álbum: ${id}`, error.message);
     throw error;
@@ -266,7 +325,7 @@ const getArtistAlbums = async (artistId) => {
   const artistAlbumsUrl = `https://api.spotify.com/v1/artists/${artistId}/albums`;
   try {
     // Solicitud a la BBDD
-    const response = await pool.query(`Select * from Album where idArt = "${artistId}"`);
+    const response = await pool.query(`Select * from Album where idArt = "${artistId}" order by popularityAlb desc;`);
     if (response[0].length > 10) {
       // Si tiene canciones las devuelve
       return response[0];
@@ -291,6 +350,30 @@ const getArtistAlbums = async (artistId) => {
     throw error;
   }
 };
+
+//----------------------------------------------------------------//
+
+const getArtistTracks = async (artistId) => {
+  const [mySQLResponse] = await pool.query("select * from track where idArt = ? order by popularityTrack desc;",
+  [
+    artistId
+  ]);
+
+  let tracks = [];
+  for (let i = 0; i < mySQLResponse.length; i++) {
+    let track = {
+      idTrack: mySQLResponse[i].idTrack,
+      idAlb: mySQLResponse[i].idAlb,
+      idArt: mySQLResponse[i].idArt,
+      nameTrack: mySQLResponse[i].nameTrack,
+      popularityTrack: mySQLResponse[i].popularityTrack,
+      previewUrl: mySQLResponse[i].previewUrl,
+      duration: convertMillisecondsToMinutes(mySQLResponse[i].duration)
+    }
+    tracks.push(track)
+  }
+  return tracks;
+}
 
 //----------------------------------------------------------------//
 // Método para obtener las nuevas novedades
@@ -354,10 +437,10 @@ const getNewReleases = async () => {
 const getArtistByName = async (nameArt) => {
   try {
     // Intenta conectar a la BBDD
-    const [SQLResponse] = await pool.query(`select * from artist where nameArt like "%${nameArt}%";`);
+    const [mySQLResponse] = await pool.query(`select * from artist where nameArt like "%${nameArt}%";`);
     //Si encuentra resultados los devuelve
-    if (SQLResponse.length != 0) {
-      return SQLResponse;
+    if (mySQLResponse.length != 0) {
+      return mySQLResponse;
     }
     //en caso de no encontrarlos hace petición a la API
     else{
@@ -388,8 +471,8 @@ const getArtistByName = async (nameArt) => {
 const getAlbumByName = async (nameAlb) => {
   try {
     // Intenta conectar a la BBDD
-    const [SQLResponse] = await pool.query(`select * from album where nameAlb like "%${nameAlb}%";`);
-    return SQLResponse;
+    const [mySQLResponse] = await pool.query(`select * from album where nameAlb like "%${nameAlb}%";`);
+    return mySQLResponse;
 
   } catch (error) {
     console.error(`Error al obtener información del album: ${nameAlb}`, error.message);
@@ -403,8 +486,8 @@ const getAlbumByName = async (nameAlb) => {
 const getTrackByName = async (nameTrack) => {
   try {
     // Intenta conectar a la BBDD
-    const [SQLResponse] = await pool.query(`select * from track where nameTrack like "%${nameTrack}%";`);
-    return SQLResponse;
+    const [mySQLResponse] = await pool.query(`select * from track where nameTrack like "%${nameTrack}%";`);
+    return mySQLResponse;
     
   } catch (error) {
     console.error(`Error al obtener información del track: ${nameTrack}`, error.message);
@@ -412,7 +495,7 @@ const getTrackByName = async (nameTrack) => {
   }
 };
 
-export { getArtist, getAlbum, getArtistAlbums, getTrack, getAlbumTracks, getNewReleases, getArtistByName, getAlbumByName, getTrackByName};
+export { getArtist, getAlbum, getArtistAlbums, getArtistTracks, getTrack, getAlbumTracks, getNewReleases, getArtistByName, getAlbumByName, getTrackByName};
 
 //------------------- Funcion principal ------------------------//
 /* 

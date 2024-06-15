@@ -39,7 +39,8 @@ export const getArtist = async (req, res) => {
             followers: artist.followers,
             summary: artist.summary,
             content: artist.content,
-            albums: await spotifyApi.getArtistAlbums(idArt)
+            albums: await spotifyApi.getArtistAlbums(idArt),
+            tracks: await spotifyApi.getArtistTracks(idArt)
         };
         res.send(response);
     } catch (error) {
