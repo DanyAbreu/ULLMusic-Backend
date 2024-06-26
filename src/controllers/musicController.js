@@ -14,11 +14,52 @@ export const getNewReleases = async (req, res) => {
     }
 }
 
+//----------------------------------------------------------------//
+// Método para simplificar las fechas
+
+function simplifyDate(completeDate) {
+    // Crear un nuevo objeto Date a partir de la cadena de fecha completa
+    const date = new Date(completeDate);
+  
+    // Obtener los componentes de año, mes y día
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Meses son 0-indexados, así que sumamos 1
+    const day = String(date.getUTCDate()).padStart(2, '0');
+  
+    // Formatear la fecha como "YYYY-MM-DD"
+    return `${year}-${month}-${day}`;
+  }
+
 export const getAlbum = async (req, res) => {
     try {
-        const { idAlb } = req.params;
+        const { idAlb, idUser } = req.query; 
         const album = await spotifyApi.getAlbum(idAlb);
-        res.send(album); //Debuelve info del album y sus canciones
+        
+        // Metodo para comprobar si al usuario le gusta el Album
+        const userLikeResponse = await pool.query(`SELECT * FROM userLikesAlbum WHERE idAlb = "${idAlb}" AND id = ${idUser};`);
+        let userLike = false;
+        if (userLikeResponse[0].length != 0) {
+            userLike = true; //Si le gusta
+        }
+        
+        let response = {
+            idAlb: album[0].idAlb,
+            artists: [],
+            nameAlb: album[0].nameAlb,
+            imageAlbUrl: album[0].imageAlbUrl,
+            genresAlb: album[0].genresAlb,
+            popularityAlb: album[0].popularityAlb,
+            releaseDate: simplifyDate(album[0].releaseDate),
+            tracks: await spotifyApi.getAlbumTracks(idAlb, idUser), //Array con todas las canciones
+            userLike: userLike
+        };
+        // bucle que recorre los artistas de un album
+        for (let i = 0; i < album.length; i++) {
+            let artist = await pool.query(`SELECT idArt, nameArt FROM artist WHERE idArt = "${album[i].idArt}"`);
+            response.artists.push(artist[0][0]);
+        }
+        
+        res.send(response); //Debuelve info del album y sus canciones
 
     } catch (error) {
         res.status(503).json({ message: 'Error al obtener el album: ' + error.message });

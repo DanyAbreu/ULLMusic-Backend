@@ -37,22 +37,6 @@ const getToken = async (clientId, clientSecret) => {
 };
 
 //----------------------------------------------------------------//
-// Método para simplificar las fechas
-
-function simplifyDate(completeDate) {
-  // Crear un nuevo objeto Date a partir de la cadena de fecha completa
-  const date = new Date(completeDate);
-
-  // Obtener los componentes de año, mes y día
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Meses son 0-indexados, así que sumamos 1
-  const day = String(date.getUTCDate()).padStart(2, '0');
-
-  // Formatear la fecha como "YYYY-MM-DD"
-  return `${year}-${month}-${day}`;
-}
-
-//----------------------------------------------------------------//
 // Método para cambiar la duración de las canciones de milisegundos a minutos
 
 function convertMillisecondsToMinutes(ms) {
@@ -132,23 +116,14 @@ const getAlbum = async (albumId) => {
     //Comprueba si está en BBDD
     let album = await pool.query(`SELECT * FROM ALBUM WHERE idAlb = "${albumId}";`);
     if (album[0].length != 0) {
-      let response = {
-        idAlb: album[0][0].idAlb,
-        artists: [],
-        nameAlb: album[0][0].nameAlb,
-        imageAlbUrl: album[0][0].imageAlbUrl,
-        genresAlb: album[0][0].genresAlb,
-        popularityAlb: album[0][0].popularityAlb,
-        releaseDate: simplifyDate(album[0][0].releaseDate),
-        tracks: await getAlbumTracks(albumId) //Array con todas las canciones
-      };
-      // bucle que recorre los artistas de un album
+
+      // bucle que recorre los artistas del album 
+      // para comprobar que estén en mySQL
       for (let i = 0; i < album[0].length; i++) {
-        let artist = await pool.query(`SELECT idArt, nameArt FROM artist WHERE idArt = "${album[0][i].idArt}"`);
-        response.artists.push(artist[0][0]);
+        await getArtist(album[0][i].idArt);
       }
       //devuelve la info, sin usar la API
-      return response;
+      return album[0];
     }
 
     // Haciendo la solicitud para obtener información del álbum
@@ -164,7 +139,7 @@ const getAlbum = async (albumId) => {
       // Bucle para insertar a todos los artistas del album
       for (let i = 0; i < album.artists.length; i++) {
         // Comprueba que el artista está en la BBDD
-        /* const artist = */ await getArtist(album.artists[i].id);
+        await getArtist(album.artists[i].id);
         let genresStr = "";
         for (let j = 0; j < album.genres.length; j++) {
           genresStr += album.genres[j] + " ";
@@ -195,10 +170,10 @@ const getAlbum = async (albumId) => {
 //----------------------------------------------------------------//
 // Método para obtener una canción
 
-const getTrack = async (id) => {
-  const trackUrl = `https://api.spotify.com/v1/tracks/${id}`;
+const getTrack = async (idTrack) => {
+  const trackUrl = `https://api.spotify.com/v1/tracks/${idTrack}`;
   try {
-    const response = await pool.query(`SELECT * FROM track WHERE idTrack = "${id}"`);
+    const response = await pool.query(`SELECT * FROM track WHERE idTrack = "${idTrack}"`);
     // Si el track está en la base de datos devuelve el objeto
     if (response[0].length != 0) {
       let track = {
@@ -240,7 +215,7 @@ const getTrack = async (id) => {
             track.data.duration_ms
           ]
         );
-        const response = await pool.query(`SELECT * FROM track WHERE idTrack = "${id}"`);
+        const response = await pool.query(`SELECT * FROM track WHERE idTrack = "${idTrack}"`);
         // Si el track está en la base de datos devuelve el objeto
         if (response[0].length != 0) {
           let track = {
@@ -261,7 +236,7 @@ const getTrack = async (id) => {
     }
 
   } catch (error) {
-    console.error(`Error al obtener información del track: ${id}`, error.message);
+    console.error(`Error al obtener información del track: ${idTrack}`, error.message);
     throw error;
   }
 };
@@ -269,25 +244,30 @@ const getTrack = async (id) => {
 //----------------------------------------------------------------//
 // Método para obtener las canciones de un album
 
-const getAlbumTracks = async (id) => {
-  const AlbumTracksUrl = `https://api.spotify.com/v1/albums/${id}/tracks `;
+const getAlbumTracks = async (idAlb, idUser) => {
+  const AlbumTracksUrl = `https://api.spotify.com/v1/albums/${idAlb}/tracks `;
   try {
-    const mySQLResponse = await pool.query(`SELECT DISTINCT(idTrack), nameTrack, previewUrl, duration FROM track WHERE idAlb = "${id}";`);
+    const mySQLResponse = await pool.query(`SELECT DISTINCT(idTrack), nameTrack, previewUrl, duration FROM track WHERE idAlb = "${idAlb}";`);
 
     //Si en BBDD hay canciones las devuleve
     let tracks = [];
     if (mySQLResponse[0].length != 0) {
       for (let i = 0; i < mySQLResponse[0].length; i++) {
+        // método para saber si al usuario le gusta el track
+        const userLikeResponse = await pool.query(`SELECT * FROM userLikesTrack WHERE idTrack = "${mySQLResponse[0][i].idTrack}" AND id = ${idUser};`);
+        let userLike = false;
+        if (userLikeResponse[0].length != 0) {
+          userLike = true; //Si le gusta
+        }
+
         let track = {
           idTrack: mySQLResponse[0][i].idTrack,
-          idAlb: mySQLResponse[0][i].idAlb,
-          idArt: mySQLResponse[0][i].idArt,
           nameTrack: mySQLResponse[0][i].nameTrack,
-          popularityTrack: mySQLResponse[0][i].popularityTrack,
           previewUrl: mySQLResponse[0][i].previewUrl,
-          duration: convertMillisecondsToMinutes(mySQLResponse[0][i].duration)
+          duration: convertMillisecondsToMinutes(mySQLResponse[0][i].duration),
+          userLike: userLike
         }
-        tracks.push(track)
+        tracks.push(track);
       }
       return tracks;
     }
@@ -314,14 +294,15 @@ const getAlbumTracks = async (id) => {
           nameTrack: response[0][i].nameTrack,
           popularityTrack: response[0][i].popularityTrack,
           previewUrl: response[0][i].previewUrl,
-          duration: convertMillisecondsToMinutes(response[0][i].duration)
+          duration: convertMillisecondsToMinutes(response[0][i].duration),
+          userLike: false
         }
         tracks.push(track)
       }
       return tracks;
     }
   } catch (error) {
-    console.error(`Error al obtener canciones del álbum: ${id}`, error.message);
+    console.error(`Error al obtener canciones del álbum: ${idAlb}`, error.message);
     throw error;
   }
 }

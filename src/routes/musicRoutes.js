@@ -17,7 +17,7 @@ import {
 } from "../controllers/musicController.js";
 
 app.get("/news",getNewReleases);
-app.get("/album/:idAlb",getAlbum);
+app.get("/album",getAlbum);
 app.get("/artist",getArtist);
 app.get("/search/:strSearch",getSearch);
 app.get("/userLikesArtist",userLikesArtist);
