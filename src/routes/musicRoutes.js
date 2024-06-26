@@ -10,13 +10,19 @@ import {
     getAlbum,
     getArtist,
     getNewReleases,
-    getSearch
+    getSearch,
+    userLikesAlbum,
+    userLikesArtist,
+    userLikesTrack
 } from "../controllers/musicController.js";
 
 app.get("/news",getNewReleases);
 app.get("/album/:idAlb",getAlbum);
-app.get("/artist/:idArt",getArtist);
+app.get("/artist",getArtist);
 app.get("/search/:strSearch",getSearch);
+app.get("/userLikesArtist",userLikesArtist);
+app.get("/userlikesAlbum",userLikesAlbum);
+app.get("/userLikesTrack",userLikesTrack);
 
 
 export default app;

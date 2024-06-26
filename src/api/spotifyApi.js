@@ -7,6 +7,7 @@ const clientId = '741295b943af455da7854611514d1fe9';
 const clientSecret = 'b843b31896e14b07818bf1895f28c08d';
 
 //----------------------------------------------------------------//
+// Metodó para obtener un token para realizar peticiones a la api de Spotify
 
 const getToken = async (clientId, clientSecret) => {
   // Endpoint de Spotify para obtener token de acceso
@@ -36,6 +37,7 @@ const getToken = async (clientId, clientSecret) => {
 };
 
 //----------------------------------------------------------------//
+// Método para simplificar las fechas
 
 function simplifyDate(completeDate) {
   // Crear un nuevo objeto Date a partir de la cadena de fecha completa
@@ -47,17 +49,18 @@ function simplifyDate(completeDate) {
   const day = String(date.getUTCDate()).padStart(2, '0');
 
   // Formatear la fecha como "YYYY-MM-DD"
-  return`${year}-${month}-${day}`;
+  return `${year}-${month}-${day}`;
 }
 
 //----------------------------------------------------------------//
+// Método para cambiar la duración de las canciones de milisegundos a minutos
 
 function convertMillisecondsToMinutes(ms) {
   // Calcular los minutos y segundos
   let totalSeconds = Math.floor(ms / 1000);
   let minutes = Math.floor(totalSeconds / 60);
   let seconds = totalSeconds % 60;
-  
+
   // Formatear los segundos para que siempre tengan dos dígitos
   let formattedSeconds = seconds < 10 ? `0${seconds}` : seconds;
 
@@ -66,14 +69,15 @@ function convertMillisecondsToMinutes(ms) {
 }
 
 //----------------------------------------------------------------//
+// Método para obtener un artista
 
-const getArtist = async (id) => {
+const getArtist = async (idArt) => {
   // Endpoint de Spotify para obtener información sobre el artista
-  const artistUrl = `https://api.spotify.com/v1/artists/${id}`;
+  const artistUrl = `https://api.spotify.com/v1/artists/${idArt}`;
 
   try {
     //Comprueba si está en BBDD
-    const [result] = await pool.query(`SELECT * FROM ARTIST WHERE idArt = "${id}";`);
+    const [result] = await pool.query(`SELECT * FROM ARTIST WHERE idArt = "${idArt}";`);
     if (result.length != 0) {
       //devuelve la info del artista, sin usar la API
       return result[0];
@@ -109,16 +113,17 @@ const getArtist = async (id) => {
     } catch (error) {
       console.error('Error al insertar al artista ' + artist.name + ': ', error.message);
     }
-
+    
     // Devolver la información del artista
-    return await getArtist(id);
+    return await getArtist(idArt);
   } catch (error) {
-    console.error(`Error al obtener información del artista: ${id}`, error.message);
+    console.error(`Error al obtener información del artista: ${idArt}`, error.message);
     throw error;
   }
 };
 
 //----------------------------------------------------------------//
+// Método para obtener un artista
 
 const getAlbum = async (albumId) => {
   // Endpoint de Spotify para obtener información de un álbum
@@ -139,7 +144,7 @@ const getAlbum = async (albumId) => {
       };
       // bucle que recorre los artistas de un album
       for (let i = 0; i < album[0].length; i++) {
-        let artist = await pool.query(`SELECT idArt, nameArt from artist WHERE idArt = "${album[0][i].idArt}"`);
+        let artist = await pool.query(`SELECT idArt, nameArt FROM artist WHERE idArt = "${album[0][i].idArt}"`);
         response.artists.push(artist[0][0]);
       }
       //devuelve la info, sin usar la API
@@ -165,15 +170,15 @@ const getAlbum = async (albumId) => {
           genresStr += album.genres[j] + " ";
         }
         await pool.query(`INSERT INTO album (idAlb,idArt,nameAlb,imageAlbUrl,genresAlb,popularityAlb,releaseDate) VALUES (?,?,?,?,?,?,?);`,
-        [
-          album.id,
-          album.artists[i].id,
-          album.name,
-          album.images[0].url,
-          genresStr,
-          album.popularity,
-          album.release_date
-        ]);
+          [
+            album.id,
+            album.artists[i].id,
+            album.name,
+            album.images[0].url,
+            genresStr,
+            album.popularity,
+            album.release_date
+          ]);
         console.log(`Insertado el album ${album.name}`)
       }
       return await getAlbum(albumId);
@@ -188,6 +193,7 @@ const getAlbum = async (albumId) => {
 };
 
 //----------------------------------------------------------------//
+// Método para obtener una canción
 
 const getTrack = async (id) => {
   const trackUrl = `https://api.spotify.com/v1/tracks/${id}`;
@@ -217,17 +223,17 @@ const getTrack = async (id) => {
     try {
       //bucle que recorre artistas del track
       for (let i = 0; i < track.data.artists.length; i++) {
-        const artistId = track.data.artists[i].id;
+        const idArt = track.data.artists[i].id;
         const albumId = track.data.album.id;
         console.log(`Insertando la canción: ${track.data.name}`);
         // inserta el track en la base de datos
-          await pool.query(
+        await pool.query(
           `INSERT INTO track (idTrack, idAlb, idArt, nameTrack, popularityTrack, previewUrl, duration)
            VALUES (?, ?, ?, ?, ?, ?, ?);`,
           [
             track.data.id,
             albumId,
-            artistId,
+            idArt,
             track.data.name,
             track.data.popularity,
             track.data.preview_url,
@@ -249,11 +255,11 @@ const getTrack = async (id) => {
           return track;
         }
       }
-      
+
     } catch (error) {
       console.error('ERROR al insertar Track ' + track.data.name + ": ", error.message);
     }
-    
+
   } catch (error) {
     console.error(`Error al obtener información del track: ${id}`, error.message);
     throw error;
@@ -261,11 +267,12 @@ const getTrack = async (id) => {
 };
 
 //----------------------------------------------------------------//
+// Método para obtener las canciones de un album
 
 const getAlbumTracks = async (id) => {
   const AlbumTracksUrl = `https://api.spotify.com/v1/albums/${id}/tracks `;
   try {
-    const mySQLResponse = await pool.query(`select distinct(idTrack), nameTrack, previewUrl, duration from track where idAlb = "${id}";`);
+    const mySQLResponse = await pool.query(`SELECT DISTINCT(idTrack), nameTrack, previewUrl, duration FROM track WHERE idAlb = "${id}";`);
 
     //Si en BBDD hay canciones las devuleve
     let tracks = [];
@@ -285,7 +292,7 @@ const getAlbumTracks = async (id) => {
       return tracks;
     }
     // Si la BBDD está vacia hace la petición a Spotify
-    else{
+    else {
       const token = await getToken(clientId, clientSecret);
       const apiResponse = await axios.get(AlbumTracksUrl, {
         headers: {
@@ -297,7 +304,7 @@ const getAlbumTracks = async (id) => {
         const trackId = apiResponse.data.items[i].id;
         await getTrack(trackId);
       }
-      const response = await pool.query(`select distinct(idTrack), nameTrack, previewUrl, duration from track where idAlb = "${id}";`);
+      const response = await pool.query(`SELECT DISTINCT(idTrack), nameTrack, previewUrl, duration FROM track WHERE idAlb = "${id}";`);
       let tracks = [];
       for (let i = 0; i < response[0].length; i++) {
         let track = {
@@ -320,15 +327,35 @@ const getAlbumTracks = async (id) => {
 }
 
 //----------------------------------------------------------------//
+// Método para obtener los albumes de un artista
 
-const getArtistAlbums = async (artistId) => {
-  const artistAlbumsUrl = `https://api.spotify.com/v1/artists/${artistId}/albums`;
+const getArtistAlbums = async (idArt, idUser) => {
+  const artistAlbumsUrl = `https://api.spotify.com/v1/artists/${idArt}/albums`;
   try {
     // Solicitud a la BBDD
-    const response = await pool.query(`Select * from Album where idArt = "${artistId}" order by popularityAlb desc;`);
-    if (response[0].length > 10) {
-      // Si tiene canciones las devuelve
-      return response[0];
+    const sqlAlbums = await pool.query(`SELECT * FROM Album WHERE idArt = "${idArt}" order by popularityAlb desc;`);
+   
+    // Si tiene Albumes los devuelve
+    if (sqlAlbums[0].length > 5) {
+      let albumsResponse = [];
+      // Bucle que recorre los albumes de la base de datos
+      for (let i = 0; i < sqlAlbums[0].length; i++) {
+        // método para saber si al usuario le gusta el album
+        const userLikeResponse = await pool.query(`SELECT * FROM userLikesAlbum WHERE idAlb = "${sqlAlbums[0][i].idAlb}" AND id = ${idUser};`);
+        let userLike = false;
+        if (userLikeResponse[0].length != 0) {
+          userLike = true; //Si le gusta
+        }
+        // Objeto album simplificado
+        let response = {
+          idAlb: sqlAlbums[0][i].idAlb,
+          nameAlb: sqlAlbums[0][i].nameAlb,
+          imageAlbUrl: sqlAlbums[0][i].imageAlbUrl,
+          userLike: userLike
+        };
+        albumsResponse.push(response);
+      }
+      return albumsResponse;
     }
     // Si no tiene hace la solicitud
     const token = await getToken(clientId, clientSecret);
@@ -343,24 +370,32 @@ const getArtistAlbums = async (artistId) => {
       console.log(" -- Obtenendo Info del album " + albums.data.items[i].name);
       await getAlbum(albumId);
     }
-    return await getArtistAlbums(artistId);
-    
+    return await getArtistAlbums(idArt, idUser);
+
   } catch (error) {
-    console.error(`Error al obtener albunes del artista: ${artistId}`, error.message);
+    console.error(`Error al obtener albunes del artista: ${idArt}`, error.message);
     throw error;
   }
 };
 
 //----------------------------------------------------------------//
+// Método para obtener las canciones de un artista
 
-const getArtistTracks = async (artistId) => {
-  const [mySQLResponse] = await pool.query("select * from track where idArt = ? order by popularityTrack desc;",
-  [
-    artistId
-  ]);
+const getArtistTracks = async (idArt, idUser) => {
+  const [mySQLResponse] = await pool.query("SELECT * FROM track WHERE idArt = ? order by popularityTrack desc;",
+    [
+      idArt
+    ]);
 
   let tracks = [];
   for (let i = 0; i < mySQLResponse.length; i++) {
+    // método para saber si al usuario le gusta el track
+    const userLikeResponse = await pool.query(`SELECT * FROM userLikesTrack WHERE idTrack = "${mySQLResponse[i].idTrack}" AND id = ${idUser};`);
+    let userLike = false;
+    if (userLikeResponse[0].length != 0) {
+      userLike = true; //Si le gusta
+    }
+
     let track = {
       idTrack: mySQLResponse[i].idTrack,
       idAlb: mySQLResponse[i].idAlb,
@@ -368,9 +403,10 @@ const getArtistTracks = async (artistId) => {
       nameTrack: mySQLResponse[i].nameTrack,
       popularityTrack: mySQLResponse[i].popularityTrack,
       previewUrl: mySQLResponse[i].previewUrl,
-      duration: convertMillisecondsToMinutes(mySQLResponse[i].duration)
+      duration: convertMillisecondsToMinutes(mySQLResponse[i].duration),
+      userLike: userLike
     }
-    tracks.push(track)
+    tracks.push(track);
   }
   return tracks;
 }
@@ -401,8 +437,8 @@ const getNewReleases = async () => {
       for (let i = 0; i < albums[0].length; i++) {
         //obtengo a todos los artistas del album
         let artists = await pool.query(`
-            select idArt, nameArt from artist where idArt in (
-            select idArt from album where idAlb = "${albums[0][i].idAlb}");`);
+            SELECT idArt, nameArt FROM artist WHERE idArt in (
+            SELECT idArt FROM album WHERE idAlb = "${albums[0][i].idAlb}");`);
         data = {
           idAlb: albums[0][i].idAlb,
           nameAlb: albums[0][i].nameAlb,
@@ -437,13 +473,13 @@ const getNewReleases = async () => {
 const getArtistByName = async (nameArt) => {
   try {
     // Intenta conectar a la BBDD
-    const [mySQLResponse] = await pool.query(`select * from artist where nameArt like "%${nameArt}%";`);
+    const [mySQLResponse] = await pool.query(`SELECT * FROM artist WHERE nameArt like "%${nameArt}%";`);
     //Si encuentra resultados los devuelve
     if (mySQLResponse.length != 0) {
       return mySQLResponse;
     }
     //en caso de no encontrarlos hace petición a la API
-    else{
+    else {
       const searchUrl = `https://api.spotify.com/v1/search?q=${nameArt}&type=artist`;
       const token = await getToken(clientId, clientSecret);
       const apiResponse = await axios.get(searchUrl, {
@@ -471,7 +507,7 @@ const getArtistByName = async (nameArt) => {
 const getAlbumByName = async (nameAlb) => {
   try {
     // Intenta conectar a la BBDD
-    const [mySQLResponse] = await pool.query(`select * from album where nameAlb like "%${nameAlb}%";`);
+    const [mySQLResponse] = await pool.query(`SELECT * FROM album WHERE nameAlb like "%${nameAlb}%";`);
     return mySQLResponse;
 
   } catch (error) {
@@ -486,16 +522,16 @@ const getAlbumByName = async (nameAlb) => {
 const getTrackByName = async (nameTrack) => {
   try {
     // Intenta conectar a la BBDD
-    const [mySQLResponse] = await pool.query(`select * from track where nameTrack like "%${nameTrack}%";`);
+    const [mySQLResponse] = await pool.query(`SELECT * FROM track WHERE nameTrack like "%${nameTrack}%";`);
     return mySQLResponse;
-    
+
   } catch (error) {
     console.error(`Error al obtener información del track: ${nameTrack}`, error.message);
     throw error;
   }
 };
 
-export { getArtist, getAlbum, getArtistAlbums, getArtistTracks, getTrack, getAlbumTracks, getNewReleases, getArtistByName, getAlbumByName, getTrackByName};
+export { getArtist, getAlbum, getTrack, getArtistAlbums, getArtistTracks, getAlbumTracks, getNewReleases, getArtistByName, getAlbumByName, getTrackByName };
 
 //------------------- Funcion principal ------------------------//
 /* 
@@ -505,14 +541,14 @@ export { getArtist, getAlbum, getArtistAlbums, getArtistTracks, getTrack, getAlb
     // Obtener el token de acceso
     //const token = await getToken(clientId, clientSecret);
 
-    const artists = await pool.query(`select idArt, count(*) from album group by idArt;`);
+    const artists = await pool.query(`SELECT idArt, count(*) FROM album group by idArt;`);
     // Bucle que recorre los artistas de nuestra BBDD
 
     for (let i = 0; i < artists[0].length; i++) {
       if (artists[0][i]['count(*)'] <= 1) {
         console.log(" - Obteneiendo albums de " + artists[0][i].idArt);
-        const artistId = artists[0][i].idArt;
-        await getArtistAlbums(artistId);
+        const idArt = artists[0][i].idArt;
+        await getArtistAlbums(idArt);
       }
     }
 
