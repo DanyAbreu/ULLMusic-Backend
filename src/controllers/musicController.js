@@ -1,5 +1,6 @@
 import { pool } from "../db.js";
 import * as spotifyApi from "../api/spotifyApi.js";
+import { response } from "express";
 //import { response } from "express";
 
 
@@ -20,28 +21,28 @@ export const getNewReleases = async (req, res) => {
 function simplifyDate(completeDate) {
     // Crear un nuevo objeto Date a partir de la cadena de fecha completa
     const date = new Date(completeDate);
-  
+
     // Obtener los componentes de año, mes y día
     const year = date.getUTCFullYear();
     const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Meses son 0-indexados, así que sumamos 1
     const day = String(date.getUTCDate()).padStart(2, '0');
-  
+
     // Formatear la fecha como "YYYY-MM-DD"
     return `${year}-${month}-${day}`;
-  }
+}
 
 export const getAlbum = async (req, res) => {
     try {
-        const { idAlb, idUser } = req.query; 
+        const { idAlb, idUser } = req.query;
         const album = await spotifyApi.getAlbum(idAlb);
-        
+
         // Metodo para comprobar si al usuario le gusta el Album
         const userLikeResponse = await pool.query(`SELECT * FROM userLikesAlbum WHERE idAlb = "${idAlb}" AND id = ${idUser};`);
         let userLike = false;
         if (userLikeResponse[0].length != 0) {
             userLike = true; //Si le gusta
         }
-        
+
         let response = {
             idAlb: album[0].idAlb,
             artists: [],
@@ -58,7 +59,7 @@ export const getAlbum = async (req, res) => {
             let artist = await pool.query(`SELECT idArt, nameArt FROM artist WHERE idArt = "${album[i].idArt}"`);
             response.artists.push(artist[0][0]);
         }
-        
+
         res.send(response); //Debuelve info del album y sus canciones
 
     } catch (error) {
@@ -70,11 +71,11 @@ export const getAlbum = async (req, res) => {
 export const getArtist = async (req, res) => {
     try {
         // Obtener los parámetros de la consulta
-        const { idArt, idUser } = req.query;  
+        const { idArt, idUser } = req.query;
 
         const artist = await spotifyApi.getArtist(idArt);
         const userLikeResponse = await pool.query(`SELECT * FROM userLikesArtist WHERE idArt = "${idArt}" AND id = ${idUser};`);
-        
+
         let userLike = false;
         if (userLikeResponse[0].length != 0) {
             userLike = true; //Si le gusta
@@ -101,7 +102,7 @@ export const getArtist = async (req, res) => {
 
 export const getSearch = async (req, res) => {
     try {
-        const {strSearch} = req.params;
+        const { strSearch } = req.params;
         const artists = await spotifyApi.getArtistByName(strSearch);
         const albums = await spotifyApi.getAlbumByName(strSearch);
         const tracks = await spotifyApi.getTrackByName(strSearch);
@@ -120,7 +121,7 @@ export const userLikesArtist = async (req, res) => {
     const { idArt, idUser } = req.query;
     let userLike = false;
     try {
-        const userLikeResponse =  await pool.query(`SELECT * FROM userLikesArtist WHERE idArt = "${idArt}" AND id = ${idUser};`);
+        const userLikeResponse = await pool.query(`SELECT * FROM userLikesArtist WHERE idArt = "${idArt}" AND id = ${idUser};`);
         if (userLikeResponse[0].length != 0) { // Si al usuario ya le gustaba
             await pool.query(`DELETE FROM userLikesArtist WHERE idArt = "${idArt}" AND id = ${idUser};`);
             res.send(userLike);
@@ -135,10 +136,10 @@ export const userLikesArtist = async (req, res) => {
 }
 
 export const userLikesAlbum = async (req, res) => {
-    const {idAlb, idUser} = req.query;
+    const { idAlb, idUser } = req.query;
     let userLike = false;
     try {
-        const userLikeResponse =  await pool.query(`SELECT * FROM userLikesAlbum WHERE idAlb = "${idAlb}" AND id = ${idUser};`);
+        const userLikeResponse = await pool.query(`SELECT * FROM userLikesAlbum WHERE idAlb = "${idAlb}" AND id = ${idUser};`);
         if (userLikeResponse[0].length != 0) { // Si al usuario ya le gustaba
             await pool.query(`DELETE FROM userLikesAlbum WHERE idAlb = "${idAlb}" AND id = ${idUser};`);
             res.send(userLike);
@@ -153,10 +154,10 @@ export const userLikesAlbum = async (req, res) => {
 }
 
 export const userLikesTrack = async (req, res) => {
-    const {idTrack, idUser} = req.query;
+    const { idTrack, idUser } = req.query;
     let userLike = false;
     try {
-        const userLikeResponse =  await pool.query(`SELECT * FROM userLikesTrack WHERE idTrack = "${idTrack}" AND id = ${idUser};`);
+        const userLikeResponse = await pool.query(`SELECT * FROM userLikesTrack WHERE idTrack = "${idTrack}" AND id = ${idUser};`);
         if (userLikeResponse[0].length != 0) { // Si al usuario ya le gustaba
             await pool.query(`DELETE FROM userLikesTrack WHERE idTrack = "${idTrack}" AND id = ${idUser};`);
             res.send(userLike);
@@ -166,6 +167,26 @@ export const userLikesTrack = async (req, res) => {
             res.send(userLike);
         }
     } catch (error) {
-        res.status(503).json({ message: 'Error al dar me gusta al Album: ' + error.message });
+        res.status(503).json({ message: 'Error al dar me gusta al Track: ' + error.message });
+    }
+}
+
+export const getUserLikes = async (req, res) => {
+    try {
+        const { idUser } = req.query;
+        const userLikesArtists = await pool.query(`SELECT distinct(idArt), nameArt, imageArtUrl FROM artist WHERE idArt IN (
+        SELECT idArt FROM userLikesArtist WHERE id = ${idUser} );`);
+        const userLikesAlbums = await pool.query(`SELECT distinct(idAlb), nameAlb, imageAlbUrl FROM album WHERE idAlb IN (
+        SELECT idAlb FROM userLikesAlbum WHERE id = ${idUser} );`);
+        const userLikesTracks = await pool.query(`SELECT distinct(idTrack), nameTrack, previewUrl, duration FROM track WHERE idTrack IN (
+        SELECT idTrack FROM userLikesTrack WHERE id = ${idUser} );`);
+        let response = {
+            artists: userLikesArtists[0],
+            albums: userLikesAlbums[0],
+            tracks: userLikesTracks[0]
+        }
+        res.send(response);
+    } catch (error) {
+        res.status(503).json({ message: 'Error al obtener los gustos del usuario: ' + error.message });
     }
 }

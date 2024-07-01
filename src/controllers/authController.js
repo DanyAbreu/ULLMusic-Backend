@@ -9,20 +9,21 @@ export const login = async (req,res)=>{
     if (!(username && passwd)) {
       return res.status(400).json({ message: 'Nombre de usuario y contraseña requeridos.' });
     }
+    // Busca al usuario
     const [result] = await pool.query(`SELECT * FROM user WHERE username = "${username}";`);
-    if (result.length==0){
-        //No se encuentra al usuario
+    //Si no se encuentra al usuario
+    if (result.length==0){       
         return res.status(400).json({ message: 'Nombre de usuario o contraseña incorrectos.' });
     }
     else{
         const resultPassword = bcrypt.compareSync(passwd, result[0].passwd);
+        //contraseña erronea
         if (!resultPassword){
-            //contraseña erronea
             return res.status(400).json({ message: 'Nombre de usuario o contraseña incorrectos.' });
         }
         else{
             const token = jwt.sign({ userId: result[0].id, username: result[0].username }, SECRET_KEY.jwtSecret, { expiresIn: '1h' });
-            res.send({id: result[0].id, username: result[0].username, token: token, expiresIn: '1h' })
+            res.send({id: result[0].id, username: result[0].username, token: token, expiresIn: '1h' });
         }
     }
 }
@@ -47,7 +48,3 @@ export const register = async (req,res)=>{
     //res.send(result[0])
 }
 
-
-// export const changePassword = async (req,res)=>{
-//     res.send("changePasswd")
-// }

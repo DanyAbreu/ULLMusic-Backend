@@ -12,9 +12,6 @@ export const checkJwt = (req,res,next)=>{
     }
 
     const { userId, username } = jwtPayload;
-    //
-    //const Atoken = jwt.sign({ userId: result[0].id, username: result[0].username }, SECRET_KEY.jwtSecret, { expiresIn: '1h' });
-    //
     const newToken = jwt.sign({ userId: userId, username: username }, SECRET_KEY.jwtSecret, { expiresIn: '1h' });
 
     res.setHeader('token', newToken);

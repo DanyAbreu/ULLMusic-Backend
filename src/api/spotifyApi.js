@@ -284,7 +284,7 @@ const getAlbumTracks = async (idAlb, idUser) => {
         const trackId = apiResponse.data.items[i].id;
         await getTrack(trackId);
       }
-      const response = await pool.query(`SELECT DISTINCT(idTrack), nameTrack, previewUrl, duration FROM track WHERE idAlb = "${id}";`);
+      const response = await pool.query(`SELECT DISTINCT(idTrack), nameTrack, previewUrl, duration FROM track WHERE idAlb = "${idAlb}";`);
       let tracks = [];
       for (let i = 0; i < response[0].length; i++) {
         let track = {

@@ -13,6 +13,7 @@ export const getAll = async (req,res)=>{
     }
     
 }
+
 export const getById = async (req,res)=>{
     //res.send('getById')
     const { id } = req.params;

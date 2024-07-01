@@ -11,6 +11,7 @@ import {
     getArtist,
     getNewReleases,
     getSearch,
+    getUserLikes,
     userLikesAlbum,
     userLikesArtist,
     userLikesTrack
@@ -23,6 +24,8 @@ app.get("/search/:strSearch",getSearch);
 app.get("/userLikesArtist",userLikesArtist);
 app.get("/userlikesAlbum",userLikesAlbum);
 app.get("/userLikesTrack",userLikesTrack);
+app.get("/getUserLikes",getUserLikes);
+
 
 
 export default app;
