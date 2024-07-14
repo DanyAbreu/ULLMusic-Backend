@@ -1,19 +1,5 @@
 import { pool } from "../db.js";
 import * as spotifyApi from "../api/spotifyApi.js";
-import { response } from "express";
-//import { response } from "express";
-
-
-
-export const getNewReleases = async (req, res) => {
-    try {
-        const newAlbums = await spotifyApi.getNewReleases();
-        res.send(newAlbums); //Devuelve un arreglo de nuevos albunes
-    } catch (error) {
-        res.status(503).json({ message: 'Error al obtener nuevos albunes: ' + error.message });
-        throw error;
-    }
-}
 
 //----------------------------------------------------------------//
 // Método para simplificar las fechas
@@ -30,6 +16,22 @@ function simplifyDate(completeDate) {
     // Formatear la fecha como "YYYY-MM-DD"
     return `${year}-${month}-${day}`;
 }
+
+//----------------------------------------------------------------//
+// Método para obtener los nuevos albumes
+
+export const getNewReleases = async (req, res) => {
+    try {
+        const newAlbums = await spotifyApi.getNewReleases();
+        res.send(newAlbums); //Devuelve un arreglo de nuevos albunes
+    } catch (error) {
+        res.status(503).json({ message: 'Error al obtener nuevos albunes: ' + error.message });
+        throw error;
+    }
+}
+
+//----------------------------------------------------------------//
+// Método para obtener la info de un album por su ID
 
 export const getAlbum = async (req, res) => {
     try {
@@ -68,6 +70,9 @@ export const getAlbum = async (req, res) => {
     }
 }
 
+//----------------------------------------------------------------//
+// Método para obtener la info de un artista por su ID
+
 export const getArtist = async (req, res) => {
     try {
         // Obtener los parámetros de la consulta
@@ -100,6 +105,9 @@ export const getArtist = async (req, res) => {
     }
 }
 
+//----------------------------------------------------------------//
+// Método para el resultado de busqueda
+
 export const getSearch = async (req, res) => {
     try {
         const { strSearch } = req.params;
@@ -116,6 +124,9 @@ export const getSearch = async (req, res) => {
         res.status(503).json({ message: 'Error al obtener la busqueda: ' + error.message });
     }
 }
+
+//----------------------------------------------------------------//
+// Método para obtener para saber si un usuario idUser le gusta el artista idArt
 
 export const userLikesArtist = async (req, res) => {
     const { idArt, idUser } = req.query;
@@ -135,6 +146,9 @@ export const userLikesArtist = async (req, res) => {
     }
 }
 
+//----------------------------------------------------------------//
+// Método para obtener para saber si un usuario idUser le gusta el album idAlb
+
 export const userLikesAlbum = async (req, res) => {
     const { idAlb, idUser } = req.query;
     let userLike = false;
@@ -153,6 +167,9 @@ export const userLikesAlbum = async (req, res) => {
     }
 }
 
+//----------------------------------------------------------------//
+// Método para obtener para saber si un usuario idUser le gusta la cancion idTrack
+
 export const userLikesTrack = async (req, res) => {
     const { idTrack, idUser } = req.query;
     let userLike = false;
@@ -170,6 +187,9 @@ export const userLikesTrack = async (req, res) => {
         res.status(503).json({ message: 'Error al dar me gusta al Track: ' + error.message });
     }
 }
+
+//----------------------------------------------------------------//
+// Método para obtener para saber los artistas, albumes y canciones de un usuario
 
 export const getUserLikes = async (req, res) => {
     try {

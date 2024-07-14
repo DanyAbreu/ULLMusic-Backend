@@ -1,6 +1,6 @@
-//Obtener axios
 import axios from "axios";
 import { pool } from "../db.js";
+import * as LastFMapi from "./lastFMApi.js";
 
 // Credenciales de la aplicación en el panel de desarrolladores de Spotify
 const clientId = '741295b943af455da7854611514d1fe9';
@@ -34,7 +34,7 @@ const getToken = async (clientId, clientSecret) => {
     console.error('Error al obtener el token:', error.message);
     throw error;
   }
-};
+}
 
 //----------------------------------------------------------------//
 // Método para cambiar la duración de las canciones de milisegundos a minutos
@@ -55,6 +55,7 @@ function convertMillisecondsToMinutes(ms) {
 //----------------------------------------------------------------//
 // Método para obtener un artista
 
+
 const getArtist = async (idArt) => {
   // Endpoint de Spotify para obtener información sobre el artista
   const artistUrl = `https://api.spotify.com/v1/artists/${idArt}`;
@@ -66,13 +67,16 @@ const getArtist = async (idArt) => {
       //devuelve la info del artista, sin usar la API
       return result[0];
     }
-    // Haciendo la solicitud para obtener información
+    // En caso contrario hace petición a las APIs
+    // Solicitud a Spotify para obtener información
     const token = await getToken(clientId, clientSecret);
     const artist = await axios.get(artistUrl, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
+    // Solicitud a LastFM para obtener la biografía
+    const artistBio = await LastFMapi.getArtistSummary;
 
     // Añade al artista en la BBDD
     try {
@@ -81,21 +85,33 @@ const getArtist = async (idArt) => {
         genresStr += artist.data.genres[i] + " ";
       }
       if (artist.data.images.length > 0) {
-        await pool.query(`INSERT INTO ARTIST (idArt,nameArt,imageArtUrl,genresArt,popularityArt,followers) VALUES (?,?,?,?,?,?);`,
+        await pool.query(`INSERT INTO ARTIST (idArt,nameArt,imageArtUrl,genresArt,popularityArt,followers,summary,content) VALUES (?,?,?,?,?,?,?,?);`,
       [
         artist.data.id,
         artist.data.name,
         artist.data.images[0].url,
         genresStr,
         artist.data.popularity,
-        artist.data.followers.total
+        artist.data.followers.total,
+        artistBio[0],
+        artistBio[1]
       ]);
       }else{
-        await pool.query(`INSERT INTO ARTIST (idArt,nameArt,imageArtUrl,genresArt,popularityArt,followers) VALUES ("${artist.data.id}","${artist.data.name}",null,"${genresStr}",${artist.data.popularity},${artist.data.followers.total});`)
+        await pool.query(`INSERT INTO ARTIST (idArt,nameArt,imageArtUrl,genresArt,popularityArt,followers,summary,content) VALUES (?,?,?,?,?,?,?,?);`,
+      [
+        artist.data.id,
+        artist.data.name,
+        null,
+        genresStr,
+        artist.data.popularity,
+        artist.data.followers.total,
+        artistBio[0],
+        artistBio[1]
+      ]);
       }
       console.log("Insertado el artista " + artist.data.name);
     } catch (error) {
-      console.error('Error al insertar al artista ' + artist.name + ': ', error.message);
+      console.error('Error al insertar al artista ' + artist.data.name + ': ', error.message);
     }
     
     // Devolver la información del artista
@@ -104,7 +120,7 @@ const getArtist = async (idArt) => {
     console.error(`Error al obtener información del artista: ${idArt}`, error.message);
     throw error;
   }
-};
+}
 
 //----------------------------------------------------------------//
 // Método para obtener un artista
@@ -165,7 +181,7 @@ const getAlbum = async (albumId) => {
     console.error(`Error al obtener información del álbum: ${albumId}`, error.message);
     throw error;
   }
-};
+}
 
 //----------------------------------------------------------------//
 // Método para obtener una canción
@@ -239,7 +255,7 @@ const getTrack = async (idTrack) => {
     console.error(`Error al obtener información del track: ${idTrack}`, error.message);
     throw error;
   }
-};
+}
 
 //----------------------------------------------------------------//
 // Método para obtener las canciones de un album
@@ -357,7 +373,7 @@ const getArtistAlbums = async (idArt, idUser) => {
     console.error(`Error al obtener albunes del artista: ${idArt}`, error.message);
     throw error;
   }
-};
+}
 
 //----------------------------------------------------------------//
 // Método para obtener las canciones de un artista
@@ -446,7 +462,7 @@ const getNewReleases = async () => {
     console.error('Error al obtener los nuevos lanzamientos:', error.message);
     throw error
   }
-};
+}
 
 //----------------------------------------------------------------//
 // Método busqueda de artistas por nombre
@@ -495,7 +511,7 @@ const getAlbumByName = async (nameAlb) => {
     console.error(`Error al obtener información del album: ${nameAlb}`, error.message);
     throw error;
   }
-};
+}
 
 //----------------------------------------------------------------//
 // Método busqueda de canciones por nombre
@@ -510,33 +526,7 @@ const getTrackByName = async (nameTrack) => {
     console.error(`Error al obtener información del track: ${nameTrack}`, error.message);
     throw error;
   }
-};
+}
 
 export { getArtist, getAlbum, getTrack, getArtistAlbums, getArtistTracks, getAlbumTracks, getNewReleases, getArtistByName, getAlbumByName, getTrackByName };
 
-//------------------- Funcion principal ------------------------//
-/* 
-(async () => {
-
-  try {
-    // Obtener el token de acceso
-    //const token = await getToken(clientId, clientSecret);
-
-    const artists = await pool.query(`SELECT idArt, count(*) FROM album group by idArt;`);
-    // Bucle que recorre los artistas de nuestra BBDD
-
-    for (let i = 0; i < artists[0].length; i++) {
-      if (artists[0][i]['count(*)'] <= 1) {
-        console.log(" - Obteneiendo albums de " + artists[0][i].idArt);
-        const idArt = artists[0][i].idArt;
-        await getArtistAlbums(idArt);
-      }
-    }
-
-
-  } catch (error) {
-    console.error('Error:', error.message);
-  }
-
-})();
- */
